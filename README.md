@@ -1,5 +1,7 @@
 # luci-app-parentcontrol
 
+移至services服务栏
+
 https://github.com/sirpdboy/luci-app-parentcontrol
 
 家长控制 ，可以按时间控制机器，端口和关键字过滤等。
