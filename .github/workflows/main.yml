@@ -1,6 +1,14 @@
 name: Build and Release
 
-on: [ push, pull_request, workflow_dispatch]
+on:
+  workflow_dispatch:
+    tags:
+        description: 'version'
+        required: true
+        default: 'v1.7'
+  push:
+    tags:
+      - "*"
 
 jobs:
   release:
