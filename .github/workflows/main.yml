@@ -2,7 +2,7 @@ name: Build and Release
 
 on:
   workflow_dispatch:
-    tags:
+    inputs:
         description: 'version'
         required: true
         default: 'v1.7'
