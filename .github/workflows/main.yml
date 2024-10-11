@@ -76,7 +76,6 @@ jobs:
       - name: Release and Upload Assets
         if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch' )  && github.ref_type == 'tag'
         uses: softprops/action-gh-release@master
-        if: steps.tag.outputs.status == 'success' && !cancelled()
         with:
           tag_name: ${{ github.ref }}
           files: "*.ipk"
