@@ -14,9 +14,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - arch: mediatek-filogic
+          - arch: aarch64_cortex-a53
             sdk_url_path: https://downloads.openwrt.org/snapshots/targets/mediatek/filogic
-            sdk_name: -mediatek-filogic_
+            sdk_name: -sdk-mediatek-filogic_
 
     env:
       PACKAGE_NAME: luci-app-parentcontrol
