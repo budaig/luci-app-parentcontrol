@@ -7,31 +7,16 @@ on:
       - "*"
 
 jobs:
-  release:
-    name: Build and Release for ${{ matrix.arch }}
+  build:
+    name: Build ${{ matrix.arch }}-${{ matrix.sdk }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         arch:
           - aarch64_cortex-a53
-          - aarch64_cortex-a72
-          - aarch64_generic
-          - arm_cortex-a5_vfpv4
-          - arm_cortex-a7
-          - arm_cortex-a7_neon-vfpv4
-          - arm_cortex-a8_vfpv3
-          - arm_cortex-a9
-          - arm_cortex-a9_neon
         sdk:
-          - openwrt-22.03
-
-    env:
-      PACKAGE_NAME: luci-app-parentcontrol
-      SDK_URL_PATH: ${{ matrix.sdk_url_path }}
-      SDK_NAME: ${{ matrix.sdk_name }}
-      ARCH: ${{ matrix.arch }}
-      CACHE_DIR: ~/cache
+          - openwrt-21.02
 
     steps:
       - uses: actions/checkout@v4
@@ -65,21 +50,13 @@ jobs:
           unzstd "$SDK_DL_DIR/$SDK_FILE" -o "${SDK_FILE%.zst}.tar"
           tar -xf "${SDK_FILE%.zst}.tar" -C "$SDK_HOME" --strip=1 || { echo "Failed to extract SDK"; exit 1; }
 
-      - name: Create Release Tag
-        if: github.event_name == 'push' && github.ref_type == 'tag'
-        run: git tag ${{ github.ref }}
-      
-      - name: Build Packages
-        run: |
-          source $GITHUB_ENV
-          cd "$SDK_HOME"
-          ./scripts/feeds update -a > /dev/null 2>&1
-          ./scripts/feeds install -a > /dev/null 2>&1
-          cp -r "${GITHUB_WORKSPACE}" "package/$PACKAGE_NAME"
-          make defconfig > /dev/null 2>&1
-          make package/${PACKAGE_NAME}/{clean,download,compile} V=s
-          find "$SDK_HOME/bin" -type f -name "${PACKAGE_NAME}_*.ipk" \
-           -exec cp -f {} "${GITHUB_WORKSPACE}" \;
+      - name: Building packages
+        uses: sbwml/openwrt-gh-action-sdk@go1.21
+        env:
+          ARCH: ${{ matrix.arch }}-${{ matrix.sdk }}
+          FEEDNAME: packages_ci
+          PACKAGES: luci-app-parentcontrol
+          NO_REFRESH_CHECK: true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
@@ -95,7 +72,3 @@ jobs:
           replacesArtifacts: true
           artifacts: "bin/packages/${{ matrix.arch }}/packages_ci/*.ipk"
 
-      - name: Clean up
-        run: |
-          rm -rf "$SDK_HOME"
-          rm -rf "$SDK_DL_DIR"
