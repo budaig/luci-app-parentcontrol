@@ -1,100 +1,45 @@
-name: Build and Release
+name: Release-Build
 
 on:
+  repository_dispatch:
   workflow_dispatch:
   push:
     tags:
       - "*"
 
 jobs:
-  release:
-    name: Build and Release for ${{ matrix.arch }}
+  build:
+    name: Build ${{ matrix.arch }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: aarch64_cortex-a53
-            sdk_url_path: https://downloads.openwrt.org/snapshots/targets/mediatek/filogic
-            sdk_name: -sdk-mediatek-filogic_
-
-    env:
-      PACKAGE_NAME: luci-app-parentcontrol
-      SDK_URL_PATH: ${{ matrix.sdk_url_path }}
-      SDK_NAME: ${{ matrix.sdk_name }}
-      ARCH: ${{ matrix.arch }}
-      CACHE_DIR: ~/cache
+        arch:
+          - aarch64_cortex-a53
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -yq gettext libncurses5-dev rsync xsltproc wget file zstd
-
-      - name: Create Directories
-        run: |
-          echo "SDK_HOME=$(mktemp -d)" >> $GITHUB_ENV
-          echo "SDK_DL_DIR=$(mktemp -d)" >> $GITHUB_ENV
-
-      - name: Prepare Build Environment
-        run: |
-          source $GITHUB_ENV
-          cd "$SDK_DL_DIR"
-          if ! ( wget -q -O - "$SDK_URL_PATH/sha256sums" | grep -- "$SDK_NAME" > sha256sums.small 2>/dev/null ) ; then
-            echo "Cannot find ${SDK_NAME} file in sha256sums."
-            exit 1
-          fi
-          SDK_FILE="$(awk '{print $2}' sha256sums.small | sed 's/*//g')"
-          wget -q -O "$SDK_DL_DIR/$SDK_FILE" "$SDK_URL_PATH/$SDK_FILE"
-          echo "Downloaded file type:"
-          file "$SDK_DL_DIR/$SDK_FILE"
-          if ! sha256sum -c sha256sums.small >/dev/null 2>&1 ; then
-            echo "SDK cannot be verified!"
-            exit 1
-          fi
-          unzstd "$SDK_DL_DIR/$SDK_FILE" -o "${SDK_FILE%.zst}.tar"
-          tar -xf "${SDK_FILE%.zst}.tar" -C "$SDK_HOME" --strip=1 || { echo "Failed to extract SDK"; exit 1; }
-
-      - name: Build Packages
-        id: upload
-        run: |
-          source $GITHUB_ENV
-          cd "$SDK_HOME"
-          ./scripts/feeds update -a > /dev/null 2>&1
-          ./scripts/feeds install -a > /dev/null 2>&1
-          cp -r "${GITHUB_WORKSPACE}" "package/$PACKAGE_NAME"
-          make defconfig > /dev/null 2>&1
-          make package/${PACKAGE_NAME}/{clean,download,compile} V=s
-          find "$SDK_HOME/bin" -type f -name "${PACKAGE_NAME}_*.ipk" \
-           -exec cp -f {} "${GITHUB_WORKSPACE}" \;
-          echo "status=success" >> $GITHUB_OUTPUT
-
-      - name: 上传固件到github
-        uses: actions/upload-artifact@v4
-        if: steps.upload.outputs.status == 'success' && !cancelled()
         with:
-          name: ${PACKAGE_NAME}_*.ipk
-          path: $SDK_HOME/bin/${PACKAGE_NAME}_*.ipk
-          
-      - name: Create Release Tag
-        id: tag
-        #if: github.event_name == 'push' && github.ref_type == 'tag'
-        if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-        run: git tag ${{ github.ref }}
+          fetch-depth: 0
 
-      - name: Release and Upload Assets
-        #if: github.event_name == 'push' && github.ref_type == 'tag'
-        uses: softprops/action-gh-release@master
-        if: steps.tag.outputs.status == 'success' && !cancelled()
-        with:
-          tag_name: ${{ github.ref }}
-          files: "*.ipk"
+      - name: Building packages
+        uses: sbwml/openwrt-gh-action-sdk@main
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARCH: ${{ matrix.arch }}-openwrt-21.02
+          FEEDNAME: packages_ci
+          PACKAGES: luci-app-ikoolproxy
+          NO_REFRESH_CHECK: true
 
-      - name: Clean up
-        run: |
-          rm -rf "$SDK_HOME"
-          rm -rf "$SDK_DL_DIR"
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}
+          path: bin/packages/${{ matrix.arch }}/packages_ci/*.ipk
+
+      - name: Upload packages
+        uses: ncipollo/release-action@v1.14.0
+        with:
+          token: ${{ secrets.REPO_TOKEN }}
+          allowUpdates: true
+          replacesArtifacts: true
+          artifacts: "bin/packages/${{ matrix.arch }}/packages_ci/*.ipk"
