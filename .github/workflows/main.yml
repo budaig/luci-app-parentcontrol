@@ -33,8 +33,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - run: git tag ${{ github.event.inputs.tag }}
-
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -64,9 +62,13 @@ jobs:
           unzstd "$SDK_DL_DIR/$SDK_FILE" -o "${SDK_FILE%.zst}.tar"
           tar -xf "${SDK_FILE%.zst}.tar" -C "$SDK_HOME" --strip=1 || { echo "Failed to extract SDK"; exit 1; }
 
-      - name: Create Release Tag
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref_type == 'tag')
+      - name: Create Release Tag - push
+        if: github.event_name == 'push' && github.ref_type == 'tag'
         run: git tag ${{ github.ref }}
+
+      - name: Create Release Tag - input
+        if: github.event_name == 'workflow_dispatch'
+        run: git tag ${{ github.event.inputs.tag }}
 
       - name: Build Packages
         run: |
@@ -80,11 +82,20 @@ jobs:
           find "$SDK_HOME/bin" -type f -name "${PACKAGE_NAME}_*.ipk" \
            -exec cp -f {} "${GITHUB_WORKSPACE}" \;
 
-      - name: Release and Upload Assets
-        if:  github.event.inputs.tag == '*' || (github.event_name == 'push' && github.ref_type == 'tag')
+      - name: Release and Upload Assets - push
+        if:  github.event_name == 'push' && github.ref_type == 'tag'
         uses: softprops/action-gh-release@master
         with:
           tag_name: ${{ github.ref }}
+          files: "*.ipk"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release and Upload Assets - input
+        if:  github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@master
+        with:
+          tag_name: ${{ github.event.inputs.tag }}
           files: "*.ipk"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
