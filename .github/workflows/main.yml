@@ -4,11 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tags:
-        description: 'tag'
+        description: 'tags'
         required: true
         default: 'v1.7'
-    tags:
-      - "*"
   push:
     tags:
       - "*"
