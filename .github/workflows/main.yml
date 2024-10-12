@@ -3,7 +3,7 @@ name: Build and Release
 on:
   workflow_dispatch:
     inputs:
-      tags:
+      tag:
         description: 'tags'
         required: true
         default: 'v1.7'
@@ -63,7 +63,7 @@ jobs:
           tar -xf "${SDK_FILE%.zst}.tar" -C "$SDK_HOME" --strip=1 || { echo "Failed to extract SDK"; exit 1; }
 
       - name: Create Release Tag
-        if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push' ) && github.ref_type == 'tag'
+        if: (github.event.inputs.tag == 'v1.*' || github.event_name == 'push' ) && github.ref_type == 'tag'
         run: git tag ${{ github.ref }}
 
       - name: Build Packages
@@ -79,7 +79,7 @@ jobs:
            -exec cp -f {} "${GITHUB_WORKSPACE}" \;
 
       - name: Release and Upload Assets
-        if: (github.event_name == 'workflow_dispatch' || github.event_name == 'push' )  && github.ref_type == 'tag'
+        if: (github.event.inputs.tag == v1.*' || github.event_name == 'push' )  && github.ref_type == 'tag'
         uses: softprops/action-gh-release@master
         with:
           tag_name: ${{ github.ref }}
